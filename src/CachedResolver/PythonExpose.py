@@ -6,7 +6,7 @@ from functools import wraps
 from pxr import Ar
 
 try:
-    from pipe23.python.pipe23.usd.resolver import ftrack_resolve
+    from pipe23.usd.resolver import ftrack_resolve
     
 except:
     print("*********Warning the Usd resolver could not import the ftrack modules.")
