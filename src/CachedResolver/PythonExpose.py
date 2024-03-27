@@ -4,38 +4,14 @@ import os
 from functools import wraps
 
 from pxr import Ar
-import ftrack_api
 
-
-def ftrack_resolve(identifier):
+try:
+    from pipe23.usd.python.resolver import ftrack_resolve
     
-    tokens = identifier.split("/")
-    project_name = tokens[0]
-    asset_name = tokens[1]
-    try:
-        version = int(tokens[-1].lstrip("v"))
-    except ValueError:
-        version = tokens[-1]
-        
-    session = ftrack_api.Session(server_url=os.environ["SHIFT_FT_URL"],
-                                 api_key=os.environ["SHIFT_FT_KEY"],
-                                 api_user=os.environ["SHIFT_FT_USER"],
-                                 plugin_paths=[os.environ["SHIFT_FT_PLUGIN_PATH"]])
-    
-    project_entity = session.query('select id from Project where name is {0}'.format(project_name)).first()
-    asset_entity = session.query('select id, latest_version from Asset where project_id is {0} and name is {1}'.format(project_entity['id'], asset_name)).first()
-    if isinstance(version, int):
-        version_entity = session.query('select components from AssetVersion where asset_id is {0} and version is {1}'.format(asset_entity['id'], version)).first()
-    elif version=='latest':
-        del(asset_entity['latest_version'])
-        session.populate(asset_entity, 'latest_version')
-        version_entity = asset_entity['latest_version']
-    
-    #Get the component path
-    location = session.pick_location()
-    component = version_entity['components'][0]
-    
-    return location.get_filesystem_path(component), version!='latest'
+except:
+    print("*********Warning the Usd resolver could not import the ftrack modules.")
+    def ftrack_resolve(identifier):
+        return identifier
     
 
 class Resolver:
@@ -64,7 +40,6 @@ class Resolver:
         Returns:
             str: The identifier.
         """
-        LOG.debug("::: Resolver.CreateRelativePathIdentifier | {} | {} | {}".format(anchoredAssetPath, assetPath, anchorAssetPath))
         return
 
 
@@ -82,7 +57,6 @@ class ResolverContext:
         Args:
             context (CachedResolverContext): The active context.
         """
-        LOG.debug("::: ResolverContext.Initialize")
         return
 
     @staticmethod
@@ -97,9 +71,6 @@ class ResolverContext:
                  it will be resolved to an empty ArResolvedPath internally, but will
                  still count as a cache hit and be stored inside the cachedPairs dict.
         """
-        LOG.debug(
-            "::: ResolverContext.ResolveAndCache | {} | {}".format(assetPath, context.GetCachingPairs())
-        )
         resolved_asset_path, toCache = ftrack_resolve(assetPath)
         print("**********Resolved asset: \n\t{0} ---> {1}".format(assetPath, resolved_asset_path))
         if toCache:
