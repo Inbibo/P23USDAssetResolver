@@ -4,46 +4,43 @@ import os
 from functools import wraps
 
 from pxr import Ar
+import ftrack_api
 
 
-# Init logger
-logging.basicConfig(format="%(asctime)s %(message)s", datefmt="%Y/%m/%d %I:%M:%S%p")
-LOG = logging.getLogger("Python | {file_name}".format(file_name=__name__))
-LOG.setLevel(level=logging.INFO)
-
-
-def log_function_args(func):
-    """Decorator to print function call details."""
-
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        func_args = inspect.signature(func).bind(*args, **kwargs).arguments
-        func_args_str = ", ".join(map("{0[0]} = {0[1]!r}".format, func_args.items()))
-        # To enable logging on all methods, re-enable this.
-        # LOG.info(f"{func.__module__}.{func.__qualname__} ({func_args_str})")
-        return func(*args, **kwargs)
-
-    return wrapper
-
-
-class UnitTestHelper:
-    create_relative_path_identifier_call_counter = 0
-    context_initialize_call_counter = 0
-    resolve_and_cache_call_counter = 0
-    current_directory_path = ""
-
-    @classmethod
-    def reset(cls, current_directory_path=""):
-        cls.create_relative_path_identifier_call_counter = 0
-        cls.context_initialize_call_counter = 0
-        cls.resolve_and_cache_call_counter = 0
-        cls.current_directory_path = current_directory_path
-
+def ftrack_resolve(identifier):
+    
+    tokens = identifier.split("/")
+    project_name = tokens[0]
+    asset_name = tokens[1]
+    try:
+        version = int(tokens[-1].lstrip("v"))
+    except ValueError:
+        version = tokens[-1]
+        
+    session = ftrack_api.Session(server_url=os.environ["SHIFT_FT_URL"],
+                                 api_key=os.environ["SHIFT_FT_KEY"],
+                                 api_user=os.environ["SHIFT_FT_USER"],
+                                 plugin_paths=[os.environ["SHIFT_FT_PLUGIN_PATH"]])
+    
+    project_entity = session.query('select id from Project where name is {0}'.format(project_name)).first()
+    asset_entity = session.query('select id, latest_version from Asset where project_id is {0} and name is {1}'.format(project_entity['id'], asset_name)).first()
+    if isinstance(version, int):
+        version_entity = session.query('select components from AssetVersion where asset_id is {0} and version is {1}'.format(asset_entity['id'], version)).first()
+    elif version=='latest':
+        del(asset_entity['latest_version'])
+        session.populate(asset_entity, 'latest_version')
+        version_entity = asset_entity['latest_version']
+    
+    #Get the component path
+    location = session.pick_location()
+    component = version_entity['components'][0]
+    
+    return location.get_filesystem_path(component), version!='latest'
+    
 
 class Resolver:
 
     @staticmethod
-    @log_function_args
     def CreateRelativePathIdentifier(resolver, anchoredAssetPath, assetPath, anchorAssetPath):
         """Returns an identifier for the asset specified by assetPath and anchor asset path.
         It is very important that the anchoredAssetPath is used as the cache key, as this
@@ -68,17 +65,12 @@ class Resolver:
             str: The identifier.
         """
         LOG.debug("::: Resolver.CreateRelativePathIdentifier | {} | {} | {}".format(anchoredAssetPath, assetPath, anchorAssetPath))
-        """The code below is only needed to verify that UnitTests work."""
-        UnitTestHelper.create_relative_path_identifier_call_counter += 1
-        remappedRelativePathIdentifier = f"relativePath|{assetPath}?{anchorAssetPath}".replace("\\", "/")
-        resolver.AddCachedRelativePathIdentifierPair(anchoredAssetPath, remappedRelativePathIdentifier)
-        return remappedRelativePathIdentifier
+        return
 
 
 class ResolverContext:
 
     @staticmethod
-    @log_function_args
     def Initialize(context):
         """Initialize the context. This get's called on default and post mapping file path
         context creation.
@@ -91,13 +83,9 @@ class ResolverContext:
             context (CachedResolverContext): The active context.
         """
         LOG.debug("::: ResolverContext.Initialize")
-        """The code below is only needed to verify that UnitTests work."""
-        UnitTestHelper.context_initialize_call_counter += 1
-        context.AddCachingPair("shot.usd", "/some/path/to/a/file.usd")
         return
 
     @staticmethod
-    @log_function_args
     def ResolveAndCache(context, assetPath):
         """Return the resolved path for the given assetPath or an empty
         ArResolvedPath if no asset exists at that path.
@@ -112,23 +100,8 @@ class ResolverContext:
         LOG.debug(
             "::: ResolverContext.ResolveAndCache | {} | {}".format(assetPath, context.GetCachingPairs())
         )
-        resolved_asset_path = "/some/path/to/a/file.usd"
-        context.AddCachingPair(assetPath, resolved_asset_path)
-        """
-        To clear the context cache call:
-        context.ClearCachingPairs()
-        """
-        """The code below is only needed to verify that UnitTests work."""
-        UnitTestHelper.resolve_and_cache_call_counter += 1
-        if assetPath == "unittest.usd":
-            current_dir_path = UnitTestHelper.current_directory_path
-            asset_a_file_path = os.path.join(current_dir_path, "assetA.usd")
-            asset_b_file_path = os.path.join(current_dir_path, "assetB.usd")
-            context.AddCachingPair("assetA.usd", asset_a_file_path)
-            context.AddCachingPair("assetB.usd", asset_b_file_path)
-        if assetPath.startswith("relativePath|"):
-            relative_path, anchor_path = assetPath.removeprefix("relativePath|").split("?")
-            anchor_path = anchor_path[:-1] if anchor_path[-1] == "/" else anchor_path[:anchor_path.rfind("/")]
-            resolved_asset_path = os.path.normpath(os.path.join(anchor_path, relative_path))
+        resolved_asset_path, toCache = ftrack_resolve(assetPath)
+        print("**********Resolved asset: \n\t{0} ---> {1}".format(assetPath, resolved_asset_path))
+        if toCache:
             context.AddCachingPair(assetPath, resolved_asset_path)
         return resolved_asset_path
