@@ -1,7 +1,7 @@
 ### Configuration ###
-set(AR_PROJECT_NAME UsdAssetResolver)
-set(AR_RESOLVER_USD_PYTHON_MODULE_NAME usdAssetResolver)
-set(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/dist" CACHE PATH "Default install dir")
+set(AR_PROJECT_NAME P23USDAssetResolver)
+set(AR_RESOLVER_USD_PYTHON_MODULE_NAME P23UsdAssetResolver)
+set(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/dist/$ENV{AR_DCC_NAME}" CACHE PATH "Default install dir")
 
 # Env Vars
 set(AR_ENV_SEARCH_PATHS "AR_SEARCH_PATHS" CACHE STRING "Environment variable that holds the search path(s) for non absolute asset paths.")
@@ -81,6 +81,7 @@ endif()
 # Python: AR_PYTHON_LIB, AR_PYTHON_LIB_NUMBER, AR_PYTHON_INCLUDE_DIR, AR_PYTHON_EXECUTABLE
 # Boost: AR_BOOST_NAMESPACE, AR_BOOST_PYTHON_LIB, AR_BOOST_INCLUDE_DIR
 if("$ENV{AR_DCC_NAME}" STREQUAL "HOUDINI")
+    message("*****Building AssetResolver For Houdini")
     # Houdini
     set(AR_HOUDINI_ROOT $ENV{HFS} CACHE PATH "Houdini install directory")
     if (WIN32)
@@ -133,10 +134,13 @@ if("$ENV{AR_DCC_NAME}" STREQUAL "HOUDINI")
         set(AR_PXR_PYTHON_LIB_SITEPACKAGES ${AR_HOUDINI_ROOT}/${AR_PYTHON_LIB_NUMBER}/lib/site-packages)
     endif()
     set(AR_PXR_INCLUDE_DIR ${AR_HOUDINI_INCLUDE_DIR})
+
 elseif("$ENV{AR_DCC_NAME}" STREQUAL "MAYA")
+    message("*****Building AssetResolver For Maya")
     # Maya
     set(AR_MAYA_USD_SDK_ROOT $ENV{MAYA_USD_SDK_ROOT} CACHE PATH "Maya USD SDK install directory")
     set(AR_MAYA_USD_SDK_DEVKIT_ROOT $ENV{MAYA_USD_SDK_DEVKIT_ROOT} CACHE PATH "Maya USD SDK DevKit install directory")
+
     set(AR_MAYA_USD_SDK_LIB_DIR ${AR_MAYA_USD_SDK_ROOT}/lib)
     set(AR_MAYA_INCLUDE_DIR ${AR_MAYA_USD_SDK_DEVKIT_ROOT}/include)
     # Python
