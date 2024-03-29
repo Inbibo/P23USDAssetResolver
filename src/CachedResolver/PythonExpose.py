@@ -8,8 +8,8 @@ from pxr import Ar
 try:
     from pipe23.usd.resolver import Resolver, ResolverContext
     
-except:
-    print("*********Warning the custom Usd Asset Resolver could not be imported, creating a dummy one.")
+except Exception as e:
+    print("*********Warning!!! The custom Usd Asset Resolver could not be imported due to the following error: {0}\nCreating a dummy one...".format(e))
     class Resolver:
 
         @staticmethod
