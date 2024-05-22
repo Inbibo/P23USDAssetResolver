@@ -309,7 +309,7 @@ class UpdateManager(object):
             pass
         # Maya
         try:
-            import pymel.core as pm
+            import maya.cmds as cmds
 
             return "maya"
         except Exception:
@@ -340,10 +340,10 @@ class UpdateManager(object):
                 sys.version_info.major, str(sys.version_info.minor)[:1]
             )
         elif dcc_name == "maya":
-            from pymel import versions as pymel_versions
+            import maya.cmds as cmds
 
             product_name = "maya"
-            product_version = pymel_versions.shortName
+            product_version = cmds.about(mjv=True)
             product_python_version = ""
 
         return product_name, product_version, product_python_version
@@ -636,7 +636,7 @@ class UpdateManager(object):
                     # App
                     lines.append("# Launch Houdini")
                     lines.append(
-                        "pushd {} && source houdini_setup && popd".format(
+                        "pushd '{}' && source houdini_setup && popd".format(
                             os.environ["HFS"]
                         )
                     )
@@ -647,7 +647,11 @@ class UpdateManager(object):
                     # App
                     lines.append("# Launch Maya")
                     # Command
-                    lines.append('{} "$@"'.format(os.path.join(os.environ["MAYA_LOCATION"], "bin", "maya")))
+                    lines.append(
+                        '"{}" "$@"'.format(
+                            os.path.join(os.environ["MAYA_LOCATION"], "bin", "maya")
+                        )
+                    )
                     launch_file.writelines(line + "\n" for line in lines)
             # Make executable
             os.chmod(launch_file_path, 0o0777)
@@ -674,11 +678,17 @@ class UpdateManager(object):
                 # App & command
                 if product_name == "houdini":
                     lines.append("REM Launch Houdini")
-                    lines.append(os.path.join(os.environ["HFS"], "bin", "houdini"))
+                    lines.append(
+                        '"{}"'.format(os.path.join(os.environ["HFS"], "bin", "houdini"))
+                    )
                     launch_file.writelines(line + "\n" for line in lines)
                 elif product_name == "maya":
                     lines.append("REM Launch Maya")
-                    lines.append(os.path.join(os.environ["MAYA_LOCATION"], "bin", "maya"))
+                    lines.append(
+                        '"{}"'.format(
+                            os.path.join(os.environ["MAYA_LOCATION"], "bin", "maya")
+                        )
+                    )
                     launch_file.writelines(line + "\n" for line in lines)
             # Make executable
             os.chmod(launch_file_path, 0o0777)
